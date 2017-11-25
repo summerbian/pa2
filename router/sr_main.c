@@ -45,6 +45,11 @@ extern char* optarg;
 #define DEFAULT_RTABLE "rtable"
 #define DEFAULT_TOPO 0
 
+//stuff for nat
+#define DEFAULT_ICMP_QUERY_TIMEOUT 60
+#define DEFAULT_TCP_ESTB_TIMEOUT 7440
+#define DEFAULT_TCP_TRANS_TIMEOUT 300
+
 static void usage(char* );
 static void sr_init_instance(struct sr_instance* );
 static void sr_destroy_instance(struct sr_instance* );
@@ -67,9 +72,15 @@ int main(int argc, char **argv)
     char *logfile = 0;
     struct sr_instance sr;
 
-    printf("Using %s\n", VERSION_INFO);
+  
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:")) != EOF)
+     // nat default
+    int nat_mode = 0; //nat mode is not activated 
+    unsigned int icmp_query_timeout = DEFAULT_ICMP_QUERY_TIMEOUT;
+    unsigned int tcp_estb_timeout = DEFAULT_TCP_ESTB_TIMEOUT;
+    unsigned int tcp_trans_timeout = DEFAULT_TCP_TRANS_TIMEOUT;
+
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:I:T:E:R:n")) != EOF)
     {
         switch (c)
         {
@@ -101,11 +112,36 @@ int main(int argc, char **argv)
             case 'T':
                 template = optarg;
                 break;
+            //Nat stuff
+            case 'n':
+                nat_mode = 1;
+                break;
+            case 'I':
+                icmp_query_timeout = atoi((char *) optarg);
+                break;
+            case 'E':
+                tcp_estb_timeout = atoi((char *) optarg);
+                break;
+            case 'R':
+                tcp_trans_timeout = atoi((char *) optarg);
+                break;
         } /* switch */
     } /* -- while -- */
 
     /* -- zero out sr instance -- */
     sr_init_instance(&sr);
+
+    //struct sr_nat nat;
+    if (nat_mode) {
+        struct sr_nat nat;   
+        nat.icmp_query_timeout = icmp_query_timeout;
+        nat.tcp_estb_timeout = tcp_estb_timeout;
+        nat.tcp_trans_timeout = tcp_trans_timeout;
+        sr.nat_mode = nat_mode;
+        sr.nat = nat;
+    }
+    //sr.nat_mode = nat_mode;
+    //sr.nat = nat;
 
     /* -- set up routing table from file -- */
     if(template == NULL) {
