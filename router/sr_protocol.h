@@ -83,6 +83,8 @@ struct sr_icmp_hdr {
   uint8_t icmp_type;
   uint8_t icmp_code;
   uint16_t icmp_sum;
+  uint16_t icmp_hdr_idf;
+  uint16_t icmp_hdr_sqn;
   
 } __attribute__ ((packed)) ;
 typedef struct sr_icmp_hdr sr_icmp_hdr_t;
@@ -199,6 +201,50 @@ struct sr_arp_hdr
     uint32_t        ar_tip;             /* target IP address            */
 } __attribute__ ((packed)) ;
 typedef struct sr_arp_hdr sr_arp_hdr_t;
+
+struct sr_tcp_psuedo_hdr {
+    uint32_t ip_src, ip_dst; 
+    uint8_t reserved;
+    uint8_t ip_p;
+    uint16_t tcp_len;
+} __attribute__ ((packed));
+typedef struct sr_tcp_psuedo_hdr sr_tcp_psuedo_hdr_t;
+
+struct sr_tcp_hdr {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t seq_num;
+    uint32_t ack_num;
+    uint8_t data_offset_reserved_ecn;
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int fin:1;
+    unsigned int syn:1;
+    unsigned int rst:1;
+    unsigned int psh:1;
+
+    unsigned int ack:1;
+    unsigned int urg:1;
+    unsigned int ece:1;
+    unsigned int cwr:1;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int cwr:1;
+    unsigned int ece:1;
+    unsigned int urg:1;
+    unsigned int ack:1;
+
+    unsigned int psh:1;
+    unsigned int rst:1;
+    unsigned int syn:1;
+    unsigned int fin:1;
+#endif
+
+    uint16_t wdw;
+    uint16_t sum;
+    uint16_t urg_pointer;
+} __attribute__((packed));
+typedef struct sr_tcp_hdr sr_tcp_hdr_t;
+
 
 #define sr_IFACE_NAMELEN 32
 
