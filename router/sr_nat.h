@@ -33,6 +33,15 @@ struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
 
+  unsigned int icmp_query_timeout;
+  unsigned int tcp_estb_timeout;
+  unsigned int tcp_trans_timeout;
+
+  //Mapping of available ports 
+  uint16_t available_ports[TOTAL_PORTS];
+  // Mapping of available ICMP identifiers 
+  uint16_t available_icmp_identifiers[TOTAL_ICMP_IDENTIFIERS];
+
   /* threading */
   pthread_mutex_t lock;
   pthread_mutexattr_t attr;
