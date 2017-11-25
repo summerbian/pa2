@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 
+#include "sr_nat.h"
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
 
@@ -54,6 +55,9 @@ struct sr_instance
     struct sr_arpcache cache;   /* ARP cache */
     pthread_attr_t attr;
     FILE* logfile;
+
+    int nat_mode;
+    struct sr_nat nat;
 };
 
 /* -- sr_main.c -- */

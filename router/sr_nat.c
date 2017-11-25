@@ -52,6 +52,25 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
 
     /* handle periodic tasks here */
 
+    struct sr_nat_mapping *currMapping, *nextMapping;
+    currMapping = nat->mappings;
+
+    while (currMapping != NULL) {
+      nextMapping = currMapping->next;
+
+      if (currMapping->type == nat_mapping_icmp) { /* ICMP */
+        if (difftime(curtime, currMapping->last_updated) > nat->icmp_query_timeout) {
+          destroy_nat_mapping(nat, currMapping);
+        }
+      } else if (currMapping->type == nat_mapping_tcp) { /* TCP */
+        check_tcp_conns(nat, currMapping);
+        if (currMapping->conns == NULL && difftime(curtime, currMapping->last_updated) > 0.5) {
+          destroy_nat_mapping(nat, currMapping);
+        }
+      }
+      currMapping = nextMapping;
+    }
+
     pthread_mutex_unlock(&(nat->lock));
   }
   return NULL;
@@ -65,10 +84,20 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
   pthread_mutex_lock(&(nat->lock));
 
   /* handle lookup here, malloc and assign to copy */
-  struct sr_nat_mapping *copy = NULL;
+ // struct sr_nat_mapping *copy = NULL;
+  struct sr_nat_mapping *currM, *foundM = NULL;
+  currM = nat->mappings;
 
+  while (currM != NULL) {
+    if (currM->type == type && currM->aux_ext == aux_ext) {
+      foundM = currM;
+      break;
+    }
+    currM = currM->next;
+  }
+  
   pthread_mutex_unlock(&(nat->lock));
-  return copy;
+  return foundM;
 }
 
 /* Get the mapping associated with given internal (ip, port) pair.
@@ -79,10 +108,21 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   pthread_mutex_lock(&(nat->lock));
 
   /* handle lookup here, malloc and assign to copy. */
-  struct sr_nat_mapping *copy = NULL;
+  //struct sr_nat_mapping *copy = NULL;
+  struct sr_nat_mapping *currM, *foundM = NULL;
+  currM = nat->mappings;
+
+  while (currM != NULL) {
+    if (currM->type == type && currM->aux_int == aux_int && currM->ip_int == ip_int) {
+      foundM = currM;
+      break;
+    }
+    currM = currM->next;
+  }
 
   pthread_mutex_unlock(&(nat->lock));
-  return copy;
+  return foundM;
+
 }
 
 /* Insert a new mapping into the nat's mapping table.
@@ -94,8 +134,20 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   pthread_mutex_lock(&(nat->lock));
 
   /* handle insert here, create a mapping, and then return a copy of it */
-  struct sr_nat_mapping *mapping = NULL;
+  //struct sr_nat_mapping *mapping = NULL;
+  struct sr_nat_mapping *newMapping = malloc(sizeof(struct sr_nat_mapping)); 
+  assert(newMapping != NULL);
+
+  newMapping->type = type;
+  newMapping->last_updated = time(NULL);
+  newMapping->ip_int = ip_int;
+  newMapping->aux_int = aux_int;
+  newMapping->conns = NULL;
+
+  struct sr_nat_mapping *currM = nat->mappings;
+  nat->mappings = newMapping;
+  newMapping->next = currM;
 
   pthread_mutex_unlock(&(nat->lock));
-  return mapping;
+  return newMapping;
 }

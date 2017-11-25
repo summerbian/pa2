@@ -19,6 +19,7 @@
 
 #include "sr_if.h"
 #include "sr_rt.h"
+#include "sr_nat.h"
 #include "sr_router.h"
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
@@ -82,7 +83,7 @@ void sr_handlepacket(struct sr_instance* sr,
   uint16_t ethtype = ethertype(packet);
 
   //printf("*** -> Received packet of length %d \n",len);
-
+  
   // Get interface of router this packet was received on
   struct sr_if *rec_iface = sr_get_interface(sr, interface);
 
