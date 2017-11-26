@@ -92,6 +92,27 @@ void sr_add_interface(struct sr_instance* sr, const char* name)
     if_walker->next = 0;
 } /* -- sr_add_interface -- */ 
 
+
+struct sr_if* sr_get_interface_by_ip(struct sr_instance* sr, uint32_t ip)
+{
+    struct sr_if* if_walker = 0;
+
+   
+    assert(ip);
+    assert(sr);
+
+    if_walker = sr->if_list;
+
+    while(if_walker)
+    {
+       if(if_walker->ip == ip)
+        { return if_walker; }
+        if_walker = if_walker->next;
+    }
+
+    return 0;
+} 
+
 /*--------------------------------------------------------------------- 
  * Method: sr_sat_ether_addr(..)
  * Scope: Global
@@ -99,6 +120,9 @@ void sr_add_interface(struct sr_instance* sr, const char* name)
  * set the ethernet address of the LAST interface in the interface list
  *
  *---------------------------------------------------------------------*/
+
+
+
 
 void sr_set_ether_addr(struct sr_instance* sr, const unsigned char* addr)
 {

@@ -33,6 +33,7 @@ uint32_t tcp_cksum(sr_ip_hdr_t *, sr_tcp_hdr_t *, int);
 
 uint16_t ethertype(uint8_t *buf);
 uint8_t ip_protocol(uint8_t *buf);
+int is_icmp_echo_reply(sr_icmp_hdr_t *icmpHdr);
 
 void print_addr_eth(uint8_t *addr);
 void print_addr_ip(struct in_addr address);

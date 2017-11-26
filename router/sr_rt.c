@@ -131,6 +131,26 @@ struct in_addr gw, struct in_addr mask,char* if_name)
 
 } /* -- sr_add_entry -- */
 
+//look through the routing table and return the entry with the longest prefix match.
+struct sr_rt *sr_get_lpm_entry(struct sr_rt *rt, uint32_t ip) {
+  unsigned long int longestMatch = 0;
+  struct sr_rt *rtMatch = NULL;
+
+  while (rt != NULL) {
+     if (((unsigned long int) rt->mask.s_addr & (unsigned long int) ip) == (unsigned long int) rt->dest.s_addr) {
+        if ((rt->mask.s_addr) > longestMatch) {
+           longestMatch = rt->mask.s_addr;
+           rtMatch = rt;
+        }
+     }
+     rt = rt->next;
+  }
+  return rtMatch;
+}
+
+
+
+
 /*---------------------------------------------------------------------
  * Method:
  *
