@@ -273,6 +273,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
                   }
                   pthread_mutex_unlock(&(sr->nat.lock));
               
+
                 default:
                   break;
               }
@@ -298,36 +299,36 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         }
       }
     } 
-    else{
-      struct sr_if *iface_walker = sr->if_list;
-    // Loop through all interfaces to see if it matches one
-      while(iface_walker) {
-        // If we are the receiver, could also compare ethernet
-        // addresses as an extra check
-        if(iface_walker->ip == ip_hdr->ip_dst) {
-          Debug("Got a packet destined the router at interface\n");
-          sr_handle_ip_rec(sr, packet, len, rec_iface, iface_walker);
-          return;
-        }
-        iface_walker = iface_walker->next;
-      }
-
-      // Not for me, do IP forwarding
-      Debug("Got a packet not destined to the router, forwarding it\n");
-      // Decrement TTL
-      ip_hdr->ip_ttl -= 1;
-
-      // If TTL now 0, drop and let sender know
-      if(ip_hdr->ip_ttl <= 0) {
-        Debug("\tDecremented a packet to TTL of 0, dropping and sending TTL expired ICMP\n");
-        sr_send_icmp_t3_to(sr, packet,
-            icmp_protocol_type_time_exceed, icmp_protocol_code_ttl_expired,
-            rec_iface, NULL);
+  else{
+    struct sr_if *iface_walker = sr->if_list;
+  // Loop through all interfaces to see if it matches one
+    while(iface_walker) {
+      // If we are the receiver, could also compare ethernet
+      // addresses as an extra check
+      if(iface_walker->ip == ip_hdr->ip_dst) {
+        Debug("Got a packet destined the router at interface\n");
+        sr_handle_ip_rec(sr, packet, len, rec_iface, iface_walker);
         return;
       }
+      iface_walker = iface_walker->next;
+    }
 
+    // Not for me, do IP forwarding
+    Debug("Got a packet not destined to the router, forwarding it\n");
+    // Decrement TTL
+    ip_hdr->ip_ttl -= 1;
+
+    // If TTL now 0, drop and let sender know
+    if(ip_hdr->ip_ttl <= 0) {
+      Debug("\tDecremented a packet to TTL of 0, dropping and sending TTL expired ICMP\n");
+      sr_send_icmp_t3_to(sr, packet,
+          icmp_protocol_type_time_exceed, icmp_protocol_code_ttl_expired,
+          rec_iface, NULL);
+      return;
+    }
+      
       // Sanity checks done, forward packet
-      sr_do_forwarding(sr, packet, len, rec_iface);
+     // sr_do_forwarding(sr, packet, len, rec_iface);
   }
     
 }
