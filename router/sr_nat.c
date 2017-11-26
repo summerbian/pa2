@@ -90,9 +90,9 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
         // Make ethernet header 
         sr_ethernet_hdr_t *reply_eth_hdr = (sr_ethernet_hdr_t *)reply_packet;
         memcpy(reply_eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(sr_ethernet_hdr_t));
-        memcpy(reply_eth_hdr->ether_shost, sr_get_interface(nat->sr, incoming->interface)->addr, sizeof(sr_ethernet_hdr_t));
+        memcpy(reply_eth_hdr->ether_shost, sr_get_interface(nat->sr, "eth2")->addr, sizeof(sr_ethernet_hdr_t));
         reply_eth_hdr->ether_type = htons(ethertype_ip);
-
+        //eth2  => incoming->interface
 
         // Make IP header 
         sr_ip_hdr_t *reply_ip_hdr = (sr_ip_hdr_t *)(reply_packet + sizeof(sr_ethernet_hdr_t));
@@ -118,8 +118,8 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
         reply_icmp_hdr->icmp_sum = 0;
         memcpy(reply_icmp_hdr->data, ip_hdr, ICMP_DATA_SIZE);
         reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
-        sr_send_packet(nat->sr, reply_packet, incoming->len, incoming->interface); 
-    
+        sr_send_packet(nat->sr, reply_packet, incoming->len, "eth2"); 
+        //incoming->interface
         if (prev_tcp_syn){
           prev_tcp_syn->next = incoming->next;
         } else {

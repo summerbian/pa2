@@ -241,13 +241,36 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
                   if (ntohl(tcp_hdr->ack_num) == tcp_con->client_isn + 1 && tcp_hdr->syn && tcp_hdr->ack) {
                     tcp_con->server_isn = ntohl(tcp_hdr->seq_num);
                     tcp_con->tcp_state = SYN_RCVD;
-                  
+                    
                   
                   } else if (ntohl(tcp_hdr->ack_num) == 0 && tcp_hdr->syn && !tcp_hdr->ack) {
                   tcp_con->server_isn = ntohl(tcp_hdr->seq_num);
                   tcp_con->tcp_state = SYN_RCVD;
                 }
                 break;
+
+                case SYN_RCVD:
+                  pthread_mutex_lock(&(sr->nat.lock));
+                  struct sr_tcp_syn *incoming = sr->nat.incoming;
+                  while (incoming){
+                    if ((incoming->ip_src == ip_hdr->ip_src) && (incoming->src_port == tcp_hdr->src_port)){
+                      break;
+                    }
+                    incoming = incoming->next;
+                  }
+
+                  if (!incoming){
+                    struct sr_tcp_syn *new = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
+                    new->ip_src = ip_hdr->ip_src;
+                    new->src_port = tcp_hdr->src_port;
+                    new->last_received = time(NULL);
+                    new->len = len;
+                    new->packet = (uint8_t *) malloc(len);
+                    memcpy(new->packet, packet, len);
+                    new->next = sr->nat.incoming;
+                    sr->nat.incoming = new;
+                  }
+                  pthread_mutex_unlock(&(sr->nat.lock));
               
                 default:
                   break;
