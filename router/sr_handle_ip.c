@@ -249,13 +249,8 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
                   tcp_con->tcp_state = SYN_RCVD;
                 }
                 break;
-              
-                default:
-                  break;
-              }
 
-
-              case SYN_RCVD:
+                case SYN_RCVD:
                   pthread_mutex_lock(&(sr->nat.lock));
                   struct sr_tcp_syn *incoming = sr->nat.incoming;
                   while (incoming){
@@ -281,6 +276,9 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
                 default:
                   break;
               }
+
+
+              
 
 
               pthread_mutex_unlock(&((sr->nat).lock));
