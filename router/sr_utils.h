@@ -68,7 +68,7 @@ void sr_send_icmp(struct sr_instance *sr, uint8_t icmp_type, uint8_t icmp_code, 
 void sr_send_icmp_t3_to(struct sr_instance *sr, uint8_t *receiver, uint8_t icmp_type, uint8_t icmp_code, struct sr_if* rec_iface, struct sr_if* target_iface);
 
 int sr_send_arp_rep(struct sr_instance *sr, sr_ethernet_hdr_t *req_eth_hdr, sr_arp_hdr_t *req_arp_hdr, struct sr_if* rec_iface);
-void sr_send_arp_req(struct sr_instance *sr, struct sr_arp_req *req);
+void sr_send_arp_req(struct sr_instance *sr, struct sr_arpreq *req);
 
 uint8_t sanity_check_arp_packet_len_ok(unsigned int len);
 uint8_t sanity_check_ip_packet_len_ok(unsigned int len);
