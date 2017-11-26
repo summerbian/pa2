@@ -56,12 +56,14 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
   sr_ethernet_hdr_t *eHdr = (sr_ethernet_hdr_t *) packet;
   uint8_t *destAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
   uint8_t *srcAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
+  
+  struct sr_ip_hdr *ipHdr = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
 
   uint8_t ipProtocol = ipHdr->ip_p;
   uint32_t ipDst = ipHdr->ip_dst;
   uint32_t ipSrc = ipHdr->ip_src;
 
-  struct sr_ip_hdr *ipHdr = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
+ 
   struct sr_if *myInterface = sr_get_interface_by_ip(sr, ipDst); 
   struct sr_rt *lpmEntry = sr_get_lpm_entry(sr->routing_table, ipDst);    
 
