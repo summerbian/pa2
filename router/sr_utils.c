@@ -288,6 +288,19 @@ struct sr_if *get_outgoing_iface(struct sr_instance *sr, uint8_t *addr)
 
 struct sr_rt *calculate_LPM(struct sr_instance *sr, uint32_t destination_ip)
 {
+  sr_sr * rt = sr->sr_rt;
+  struct sr_rt *closestMatch = NULL; 
+	while (rt != NULL) {
+		uint32_t mask = rt->mask.s_addr;
+		if ((ip_dst & mask) == (rt->dest.s_addr & mask)) {
+			if (closestMatch == NULL || (mask > closestMatch->mask.s_addr)) {
+				closestMatch = rt;
+			}
+		}
+		rt = rt->next;
+	}
+	return closestMatch;
+  /*
     struct sr_rt *routing_table_node = sr->routing_table;
     struct sr_rt *best_match = NULL;
     while (routing_table_node) {
@@ -299,6 +312,8 @@ struct sr_rt *calculate_LPM(struct sr_instance *sr, uint32_t destination_ip)
         routing_table_node = routing_table_node->next;
     }
     return best_match;
+
+    */
 }
 
 
