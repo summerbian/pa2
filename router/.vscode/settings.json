@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "sr_protocol.h": "c",
+        "sr_router.h": "c",
+        "sr_rt.h": "c"
+    }
+}
