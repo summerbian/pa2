@@ -25,7 +25,8 @@
  *
  */
 
-//#include "sr_router.h"
+#include "sr_router.h"
+#include "sr_protocol.h"
 
 #ifndef SR_UTILS_H
 #define SR_UTILS_H
