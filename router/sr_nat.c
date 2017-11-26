@@ -7,6 +7,7 @@
 #include <time.h>
 #include <string.h>
 #include "sr_nat.h"
+#include "sr_utils.h"
 #include "sr_router.h"
 #include "sr_protocol.h"
 
