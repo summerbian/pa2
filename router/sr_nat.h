@@ -81,7 +81,6 @@ struct sr_nat {
   unsigned int tcp_trans_timeout;
 
   struct sr_tcp_syn *incoming;
-  struct sr_nat_mapping *mappings;
   struct sr_instance *sr;
 
   //Mapping of available ports 
