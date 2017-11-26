@@ -288,7 +288,7 @@ struct sr_if *get_outgoing_iface(struct sr_instance *sr, uint8_t *addr)
 
 struct sr_rt *calculate_LPM(struct sr_instance *sr, uint32_t destination_ip)
 {
-  sr_rt * rt = sr->routing_table;
+  struct sr_rt * rt = sr->routing_table;
   struct sr_rt *closestMatch = NULL; 
 	while (rt != NULL) {
 		uint32_t mask = rt->mask.s_addr;
