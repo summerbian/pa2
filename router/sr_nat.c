@@ -246,7 +246,7 @@ void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping) {
         destroy_tcp_conn(nat_mapping, currConn);
       }
     } else {
-      if (difftime(curtime, currConn->last_updated) > nat->tcp_trns_timeout) {
+      if (difftime(curtime, currConn->last_updated) > nat->tcp_trans_timeout) {
         destroy_tcp_conn(nat_mapping, currConn);
       }
     }
