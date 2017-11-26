@@ -238,8 +238,8 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
 
               ipHdr->ip_sum = 0;
               ipHdr->ip_sum = cksum(ipHdr, sizeof(sr_ip_hdr_t));
-              tcp_hdr->sum = 0;
-              tcp_hdr->sum = cksum(ipHdr, tcp_hdr, len);
+              
+              tcp_hdr->sum = tcp_cksum(ipHdr, tcp_hdr, len);
 
               sr_do_forwarding(sr, packet, len, rec_iface);
             }

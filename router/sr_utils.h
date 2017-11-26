@@ -29,7 +29,7 @@
 #define SR_UTILS_H
 
 uint16_t cksum(const void *_data, int len);
-uint32_t tcp_cksum(sr_ip_hdr_t *, sr_tcp_hdr_t *, int);
+uint32_t tcp_cksum(sr_ip_hdr_t *ipHdr, sr_tcp_hdr_t *tcpHdr, int total_len);
 
 uint16_t ethertype(uint8_t *buf);
 uint8_t ip_protocol(uint8_t *buf);

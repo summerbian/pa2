@@ -65,7 +65,9 @@ uint32_t tcp_cksum(sr_ip_hdr_t *ipHdr, sr_tcp_hdr_t *tcpHdr, int total_len) {
   return calcCksum;
 }
 
-
+int is_icmp_echo_reply(sr_icmp_hdr_t *icmpHdr) {
+ return (icmpHdr->icmp_type == 0 && icmpHdr->icmp_code == 0) ? 1 : 0;
+}
 
 /* Prints out formatted Ethernet address, e.g. 00:11:22:33:44:55 */
 void print_addr_eth(uint8_t *addr) {
