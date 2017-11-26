@@ -8,7 +8,7 @@
 
 #define MIN_ICMP_IDENTIFIER 1
 #define TOTAL_ICMP_IDENTIFIERS MAX_UINT - MIN_ICMP_IDENTIFIER
-
+#define NAT_INTERNAL_IFACE "eth1"
 
 #include <inttypes.h>
 #include <time.h>
