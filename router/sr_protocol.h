@@ -76,9 +76,6 @@
 #endif
 #define ICMP_DATA_SIZE 28
 
-#ifndef ICMP_UNREACHABLE_REPLY
-#define ICMP_UNREACHABLE_REPLY 3
-#endif
 
 /* Structure of a ICMP header
  */

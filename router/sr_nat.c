@@ -1,16 +1,12 @@
 
 #include <signal.h>
 #include <assert.h>
+#include "sr_nat.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include "sr_nat.h"
-#include "sr_utils.h"
-#include "sr_router.h"
-#include "sr_protocol.h"
-
 
 int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
 
@@ -58,96 +54,19 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
 
     time_t curtime = time(NULL);
 
-    
+    /* handle periodic tasks here */
 
     struct sr_nat_mapping *currMapping, *nextMapping;
     currMapping = nat->mappings;
 
-
-    struct sr_tcp_syn *incoming = nat->incoming;
-    struct sr_tcp_syn *prev_tcp_syn = NULL;
-    while (incoming){
-      if (difftime(curtime, incoming->last_received) > 6){
-        int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-        uint8_t *reply_packet = malloc(len);
-
-        sr_ethernet_hdr_t *eth_hdr = malloc(sizeof(sr_ethernet_hdr_t));
-        memcpy(eth_hdr, (sr_ethernet_hdr_t *) incoming->packet, sizeof(sr_ethernet_hdr_t));
-
-        sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *) (incoming->packet + sizeof(sr_ethernet_hdr_t));
-
-        // Determine if packet is directed to this router 
-        struct sr_if *if_walker = 0;
-        if_walker = nat->sr->if_list;
-
-        while(if_walker){
-          if(if_walker->ip == ip_hdr->ip_dst){
-            break;
-          }
-        if_walker = if_walker->next;
-        }
-
-        // Make ethernet header 
-        sr_ethernet_hdr_t *reply_eth_hdr = (sr_ethernet_hdr_t *)reply_packet;
-        memcpy(reply_eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(sr_ethernet_hdr_t));
-        memcpy(reply_eth_hdr->ether_shost, sr_get_interface(nat->sr, "eth2")->addr, sizeof(sr_ethernet_hdr_t));
-        reply_eth_hdr->ether_type = htons(ethertype_ip);
-        //eth2  => incoming->interface
-
-        // Make IP header 
-        sr_ip_hdr_t *reply_ip_hdr = (sr_ip_hdr_t *)(reply_packet + sizeof(sr_ethernet_hdr_t));
-        reply_ip_hdr->ip_v = 4;
-        reply_ip_hdr->ip_hl = sizeof(sr_ip_hdr_t)/4;
-        reply_ip_hdr->ip_tos = 0;
-        reply_ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
-        reply_ip_hdr->ip_id = htons(0);
-        reply_ip_hdr->ip_off = htons(IP_DF);
-        reply_ip_hdr->ip_ttl = 64;
-        reply_ip_hdr->ip_dst = ip_hdr->ip_src;
-        reply_ip_hdr->ip_p = ip_protocol_icmp;
-        reply_ip_hdr->ip_src = if_walker->ip;
-        reply_ip_hdr->ip_sum = 0;
-        reply_ip_hdr->ip_sum = cksum(reply_ip_hdr, sizeof(sr_ip_hdr_t));
-
-        // Make ICMP Header 
-        sr_icmp_t3_hdr_t *reply_icmp_hdr = (sr_icmp_t3_hdr_t *)(reply_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-        reply_icmp_hdr->icmp_type = ICMP_UNREACHABLE_REPLY;
-        reply_icmp_hdr->icmp_code = 3;
-        reply_icmp_hdr->unused = 0;
-        reply_icmp_hdr->next_mtu = 0;
-        reply_icmp_hdr->icmp_sum = 0;
-        memcpy(reply_icmp_hdr->data, ip_hdr, ICMP_DATA_SIZE);
-        reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
-        sr_send_packet(nat->sr, reply_packet, incoming->len, "eth2"); 
-        //incoming->interface
-        if (prev_tcp_syn){
-          prev_tcp_syn->next = incoming->next;
-        } else {
-          nat->incoming = incoming->next;
-        }
-
-        struct sr_tcp_syn *temp = incoming;
-        incoming = incoming->next;
-        free(temp->packet);
-        free(temp);
-      } else {
-        prev_tcp_syn = incoming;
-        incoming = incoming->next;
-      }
-    }
-
-
-
     while (currMapping != NULL) {
       nextMapping = currMapping->next;
 
-      //icmp
-      if (currMapping->type == nat_mapping_icmp) { 
+      if (currMapping->type == nat_mapping_icmp) { /* ICMP */
         if (difftime(curtime, currMapping->last_updated) > nat->icmp_query_timeout) {
           destroy_nat_mapping(nat, currMapping);
         }
-        //tcp
-      } else if (currMapping->type == nat_mapping_tcp) { 
+      } else if (currMapping->type == nat_mapping_tcp) { /* TCP */
         check_tcp_conns(nat, currMapping);
         if (currMapping->conns == NULL && difftime(curtime, currMapping->last_updated) > 0.5) {
           destroy_nat_mapping(nat, currMapping);

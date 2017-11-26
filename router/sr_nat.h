@@ -49,18 +49,6 @@ struct sr_nat_connection {
 
 };
 
-struct sr_tcp_syn {
-  uint32_t ip_src;
-  uint16_t src_port;
-  time_t last_received;
-
-  uint8_t *packet;
-  unsigned int len;
-  char *interface;
-  struct sr_tcp_syn *next;
-};
-
-
 struct sr_nat_mapping {
   sr_nat_mapping_type type;
   uint32_t ip_int; /* internal ip addr */
@@ -75,8 +63,7 @@ struct sr_nat_mapping {
 struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
-  struct sr_instance *sr;
-  struct sr_tcp_syn *incoming;
+
   unsigned int icmp_query_timeout;
   unsigned int tcp_estb_timeout;
   unsigned int tcp_trans_timeout;
