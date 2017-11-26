@@ -84,15 +84,15 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             printf("Nat mode, icmp\n");
             sr_icmp_hdr_t *icmp_hdr = packet_get_icmp_hdr(packet);
 
-            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_internal(&(sr->nat), ipSrc, icmp_hdr->icmp_etc_hdr_1, nat_mapping_icmp);
+            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_internal(&(sr->nat), ipSrc, icmp_hdr->icmp_hdr_idf, nat_mapping_icmp);
             if (nat_lookup == NULL) {
-              nat_lookup = sr_nat_insert_mapping(&(sr->nat), ipSrc, icmp_hdr->icmp_etc_hdr_1, nat_mapping_icmp);
+              nat_lookup = sr_nat_insert_mapping(&(sr->nat), ipSrc, icmp_hdr->icmp_hdr_idf, nat_mapping_icmp);
               nat_lookup->ip_ext = sr_get_interface(sr, lpmEntry->interface)->ip;
               nat_lookup->aux_ext = generate_unique_icmp_identifier(&(sr->nat));
             }
 
             nat_lookup->last_updated = time(NULL);
-            icmp_hdr->icmp_etc_hdr_1 = nat_lookup->aux_ext;
+            icmp_hdr->icmp_hdr_idf = nat_lookup->aux_ext;
             ipHdr->ip_src = nat_lookup->ip_ext;
 
            
@@ -178,14 +178,14 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             printf("external to internal icmp\n");
             sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
             
-            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_external(&(sr->nat), icmp_hdr->icmp_etc_hdr_1, nat_mapping_icmp);
+            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_external(&(sr->nat), icmp_hdr->icmp_hdr_idf, nat_mapping_icmp);
             if (nat_lookup != NULL) {
               if (is_icmp_echo_reply(icmp_hdr)) {
                 ipHdr->ip_dst = nat_lookup->ip_int;
-                icmp_hdr->icmp_etc_hdr_1 = nat_lookup->aux_int;
+                icmp_hdr->icmp_hdr_idf = nat_lookup->aux_int;
                 nat_lookup->last_updated = time(NULL);
 
-                 ipHdr->ip_sum = 0;
+                ipHdr->ip_sum = 0;
                 ipHdr->ip_sum = cksum(ipHdr, sizeof(sr_ip_hdr_t));
                 int icmpOffset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
                 icmp_hdr->icmp_sum = 0;
