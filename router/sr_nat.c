@@ -1,12 +1,13 @@
 
 #include <signal.h>
 #include <assert.h>
-#include "sr_nat.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include "sr_nat.h"
+#include "sr_utils.h"
 
 int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
 
