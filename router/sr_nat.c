@@ -54,7 +54,32 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
 
     time_t curtime = time(NULL);
 
-    /* handle periodic tasks here */
+    struct sr_tcp_syn *incoming, *previous;
+    incoming = nat->incoming;
+    while(incoming) {
+      if (difftime(curtime, incoming->last_received) >= 6) {
+        //send icmp
+        struct sr_if *out = sr_get_interface(nat->sr, "eth2");
+        sr_send_icmp_t3_to(nat->sr, incoming->packet, icmp_protocol_type_dest_unreach, 
+        icmp_protocol_code_port_unreach, out, NULL);
+
+       
+        if (previous) {
+          previous->next = incoming->next;
+        }
+        else {
+          nat->incoming = incoming->next;
+        }
+        struct sr_tcp_syn *temp = incoming;
+        incoming = incoming->next;
+        free(temp->packet);
+        free(temp);
+      }
+      else {
+        previous = incoming;
+        incoming = incoming->next;
+      }
+    }
 
     struct sr_nat_mapping *currMapping, *nextMapping;
     currMapping = nat->mappings;
@@ -62,11 +87,13 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     while (currMapping != NULL) {
       nextMapping = currMapping->next;
 
-      if (currMapping->type == nat_mapping_icmp) { /* ICMP */
+      //icmp
+      if (currMapping->type == nat_mapping_icmp) { 
         if (difftime(curtime, currMapping->last_updated) > nat->icmp_query_timeout) {
           destroy_nat_mapping(nat, currMapping);
         }
-      } else if (currMapping->type == nat_mapping_tcp) { /* TCP */
+        //tcp
+      } else if (currMapping->type == nat_mapping_tcp) { 
         check_tcp_conns(nat, currMapping);
         if (currMapping->conns == NULL && difftime(curtime, currMapping->last_updated) > 0.5) {
           destroy_nat_mapping(nat, currMapping);
