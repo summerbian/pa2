@@ -77,5 +77,13 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type );
 
+int sr_nat_is_iface_internal(char *iface);
+int generate_unique_port(struct sr_nat *nat);
+int generate_unique_icmp_identifier(struct sr_nat *nat);
+struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping *mapping, uint32_t ip_con);
+struct sr_nat_connection *sr_nat_insert_tcp_con(struct sr_nat_mapping *mapping, uint32_t ip_con);
+void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping);
+void destroy_tcp_conn(struct sr_nat_mapping *mapping, struct sr_nat_connection *conn);
+void destroy_nat_mapping(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping);
 
 #endif
