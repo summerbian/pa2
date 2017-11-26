@@ -13,6 +13,8 @@
 #include <inttypes.h>
 #include <time.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef enum {
   nat_mapping_icmp,
