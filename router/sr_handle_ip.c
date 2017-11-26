@@ -53,9 +53,9 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
  
   sr_ip_hdr_t *ip_hdr = packet_get_ip_hdr(packet);
       
-  sr_ethernet_hdr_t *eHdr = (sr_ethernet_hdr_t *) packet;
-  uint8_t *destAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
-  uint8_t *srcAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
+  //sr_ethernet_hdr_t *eHdr = (sr_ethernet_hdr_t *) packet;
+  //uint8_t *destAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
+  //uint8_t *srcAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
   
   struct sr_ip_hdr *ipHdr = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
 
@@ -70,7 +70,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
   if(!check_ip_packet_ok(ip_hdr, len)) return;
 
   if (sr->nat_mode) {
-      struct sr_if *internal_interface = sr_get_interface(sr, NAT_INTERNAL_IFACE);
+     // struct sr_if *internal_interface = sr_get_interface(sr, NAT_INTERNAL_IFACE);
      // struct sr_if *internal_interface = sr_get_interface(sr, rec_iface);
       printf("Nat mode \n");
       if (sr_nat_is_iface_internal(rec_iface->name)) {
