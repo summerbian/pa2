@@ -43,7 +43,7 @@ struct sr_nat_connection {
   sr_tcp_state tcp_state;
 
   struct sr_nat_connection *next;
-  struct sr_nat_connection *next;
+
 };
 
 struct sr_nat_mapping {
