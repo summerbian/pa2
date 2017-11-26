@@ -140,6 +140,7 @@ int main(int argc, char **argv)
         nat.tcp_trans_timeout = tcp_trans_timeout;
         sr.nat_mode = nat_mode;
         sr.nat = nat;
+        nat.sr = &sr;
     }
     //sr.nat_mode = nat_mode;
     //sr.nat = nat;
