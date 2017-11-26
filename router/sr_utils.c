@@ -292,7 +292,7 @@ struct sr_rt *calculate_LPM(struct sr_instance *sr, uint32_t destination_ip)
   struct sr_rt *closestMatch = NULL; 
 	while (rt != NULL) {
 		uint32_t mask = rt->mask.s_addr;
-		if ((ip_dst & mask) == (rt->dest.s_addr & mask)) {
+		if ((destination_ip & mask) == (rt->dest.s_addr & mask)) {
 			if (closestMatch == NULL || (mask > closestMatch->mask.s_addr)) {
 				closestMatch = rt;
 			}
