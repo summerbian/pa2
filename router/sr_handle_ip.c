@@ -140,6 +140,30 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
                   tcp_con->client_isn = ntohl(tcp_hdr->seq_num);
                   tcp_con->tcp_state = ESTABLISHED;
                 }
+
+
+                pthread_mutex_lock(&(sr->nat.lock));
+                struct sr_tcp_syn *incoming = sr->nat.incoming;
+                while (incoming){
+                  if ((incoming->ip_src == ip_hdr->ip_src) && (incoming->src_port == tcp_hdr->src_port)){
+                    break;
+                  }
+                  incoming = incoming->next;
+                }
+
+                if (!incoming){
+                  struct sr_tcp_syn *new = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
+                  new->ip_src = ip_hdr->ip_src;
+                  new->src_port = tcp_hdr->src_port;
+                  new->last_received = time(NULL);
+                  new->len = len;
+                  new->packet = (uint8_t *) malloc(len);
+                  memcpy(new->packet, packet, len);
+                  new->next = sr->nat.incoming;
+                  sr->nat.incoming = new;
+                }
+                pthread_mutex_unlock(&(sr->nat.lock));
+
                 break;
 
               case ESTABLISHED:
@@ -229,6 +253,35 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
                 default:
                   break;
               }
+
+
+              case SYN_RCVD:
+                  pthread_mutex_lock(&(sr->nat.lock));
+                  struct sr_tcp_syn *incoming = sr->nat.incoming;
+                  while (incoming){
+                    if ((incoming->ip_src == ip_hdr->ip_src) && (incoming->src_port == tcp_hdr->src_port)){
+                      break;
+                    }
+                    incoming = incoming->next;
+                  }
+
+                  if (!incoming){
+                    struct sr_tcp_syn *new = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
+                    new->ip_src = ip_hdr->ip_src;
+                    new->src_port = tcp_hdr->src_port;
+                    new->last_received = time(NULL);
+                    new->len = len;
+                    new->packet = (uint8_t *) malloc(len);
+                    memcpy(new->packet, packet, len);
+                    new->next = sr->nat.incoming;
+                    sr->nat.incoming = new;
+                  }
+                  pthread_mutex_unlock(&(sr->nat.lock));
+              
+                default:
+                  break;
+              }
+
 
               pthread_mutex_unlock(&((sr->nat).lock));
             
