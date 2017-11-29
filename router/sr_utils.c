@@ -233,6 +233,10 @@ sr_ip_hdr_t *packet_get_ip_hdr(uint8_t *packet) {
   return (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
 }
 
+sr_tcp_hdr_t *packet_get_tcp_hdr(uint8_t *packet) {
+  return (sr_tcp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_tcp_hdr_t));
+}
+
 sr_icmp_hdr_t *packet_get_icmp_hdr(uint8_t *packet) {
   return (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 }
@@ -552,3 +556,6 @@ uint8_t is_icmp_chksum_ok(uint16_t len, sr_icmp_hdr_t *icmp_hdr) {
     return 0;
   }
 }
+
+
+

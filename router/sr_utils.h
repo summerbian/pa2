@@ -52,6 +52,7 @@ void print_hdrs(uint8_t *buf, uint32_t length);
 sr_arp_hdr_t *packet_get_arp_hdr(uint8_t *packet);
 sr_ethernet_hdr_t *packet_get_eth_hdr(uint8_t *packet);
 sr_ip_hdr_t *packet_get_ip_hdr(uint8_t *packet);
+sr_tcp_hdr_t *packet_get_tcp_hdr(uint8_t *packet);
 sr_icmp_hdr_t *packet_get_icmp_hdr(uint8_t *packet);
 sr_icmp_t3_hdr_t *packet_get_icmp_t3_hdr(uint8_t *packet);
 
@@ -77,5 +78,7 @@ uint8_t sanity_check_icmp_packet_len_ok(unsigned int len);
 
 uint8_t is_ip_chksum_ok(sr_ip_hdr_t *ip_hdr);
 uint8_t is_icmp_chksum_ok(uint16_t ip_len, sr_icmp_hdr_t *icmp_hdr);
+
+
 
 #endif /* -- SR_UTILS_H -- */

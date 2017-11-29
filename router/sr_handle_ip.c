@@ -57,248 +57,216 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
   //uint8_t *destAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
   //uint8_t *srcAddr = malloc(sizeof(uint8_t) * ETHER_ADDR_LEN);
   
-  struct sr_ip_hdr *ipHdr = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
+  struct sr_ip_hdr *iphdr = (struct sr_ip_hdr *) (packet + sizeof(sr_ethernet_hdr_t));
 
-  uint8_t ipProtocol = ipHdr->ip_p;
-  uint32_t ipDst = ipHdr->ip_dst;
-  uint32_t ipSrc = ipHdr->ip_src;
+  if(!check_ip_packet_ok(ip_hdr, len)){
+    return;
+  } 
+  struct sr_rt *match = longest_prefix_match(sr, iphdr->ip_dst);
+  uint32_t packetDst = iphdr->ip_dst;
 
- 
-  struct sr_if *myInterface = sr_get_interface_by_ip(sr, ipDst); 
-  struct sr_rt *lpmEntry = sr_get_lpm_entry(sr->routing_table, ipDst);    
+  //if is in nat node
+  if(sr->nat_mode == 1){
+    //check if is from internal or external interface
+    if(strcmp(rec_iface->name, "eth1") == 0){
 
-  if(!check_ip_packet_ok(ip_hdr, len)) return;
-
-  if (sr->nat_mode) {
-     // struct sr_if *internal_interface = sr_get_interface(sr, NAT_INTERNAL_IFACE);
-     // struct sr_if *internal_interface = sr_get_interface(sr, rec_iface);
-      printf("Nat mode \n");
-      if (sr_nat_is_iface_internal(rec_iface->name)) {
-        
-        //the packet is for the router or the internal interface 
-        if (myInterface != NULL || sr_nat_is_iface_internal(lpmEntry->interface)) {
-          sr_do_forwarding(sr, packet, len, rec_iface);
-          
-        
-        // the packet is for the external interface 
-        } else {
-          if (ipProtocol == ip_protocol_icmp) {
-            printf("Nat mode, icmp\n");
-            sr_icmp_hdr_t *icmp_hdr = packet_get_icmp_hdr(packet);
-
-            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_internal(&(sr->nat), ipSrc, icmp_hdr->icmp_hdr_idf, nat_mapping_icmp);
-            if (nat_lookup == NULL) {
-              nat_lookup = sr_nat_insert_mapping(&(sr->nat), ipSrc, icmp_hdr->icmp_hdr_idf, nat_mapping_icmp);
-              nat_lookup->ip_ext = sr_get_interface(sr, lpmEntry->interface)->ip;
-              nat_lookup->aux_ext = generate_unique_icmp_identifier(&(sr->nat));
-            }
-
-            nat_lookup->last_updated = time(NULL);
-            icmp_hdr->icmp_hdr_idf = nat_lookup->aux_ext;
-            ipHdr->ip_src = nat_lookup->ip_ext;
-
-           
-            ipHdr->ip_sum = 0;
-            ipHdr->ip_sum = cksum(ipHdr, sizeof(sr_ip_hdr_t));
-            int icmpOffset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
-            icmp_hdr->icmp_sum = 0;
-            icmp_hdr->icmp_sum = cksum(icmp_hdr, len - icmpOffset);
-
-            sr_do_forwarding(sr, packet, len, rec_iface);
-         
-          } else if (ipProtocol == ip_protocol_tcp) {
-            printf("Nat mode, TCP part\n");
-            sr_tcp_hdr_t *tcp_hdr = (sr_tcp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_tcp_hdr_t));
-
-            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_internal(&(sr->nat), ipSrc, ntohs(tcp_hdr->src_port), nat_mapping_tcp);
-            if (nat_lookup == NULL) {
-              nat_lookup = sr_nat_insert_mapping(&(sr->nat), ipSrc, ntohs(tcp_hdr->src_port), nat_mapping_tcp);
-              nat_lookup->ip_ext = sr_get_interface(sr, lpmEntry->interface)->ip;
-              nat_lookup->aux_ext = generate_unique_port(&(sr->nat));
-            }
-            nat_lookup->last_updated = time(NULL);
-
-            // Critical section, modify code under critical section. 
-            pthread_mutex_lock(&((sr->nat).lock));
-
-            struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_lookup, ipDst);
-            if (tcp_con == NULL) {
-              tcp_con = sr_nat_insert_tcp_con(nat_lookup, ipDst);
-            }
-            tcp_con->last_updated = time(NULL);
-
-            switch (tcp_con->tcp_state) {
-              case CLOSED:
-                if (ntohl(tcp_hdr->ack_num) == 0 && tcp_hdr->syn && !tcp_hdr->ack) {
-                  tcp_con->client_isn = ntohl(tcp_hdr->seq_num);
-                  tcp_con->tcp_state = SYN_SENT;
-                }
-                break;
-
-              case SYN_RCVD:
-                if (ntohl(tcp_hdr->seq_num) == tcp_con->client_isn + 1 && ntohl(tcp_hdr->ack_num) == tcp_con->server_isn + 1 && !tcp_hdr->syn) {
-                  tcp_con->client_isn = ntohl(tcp_hdr->seq_num);
-                  tcp_con->tcp_state = ESTABLISHED;
-                }
-
-
-                pthread_mutex_lock(&(sr->nat.lock));
-                struct sr_tcp_syn *incoming = sr->nat.incoming;
-                while (incoming){
-                  if ((incoming->ip_src == ip_hdr->ip_src) && (incoming->src_port == tcp_hdr->src_port)){
-                    break;
-                  }
-                  incoming = incoming->next;
-                }
-
-                if (!incoming){
-                  struct sr_tcp_syn *new = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
-                  new->ip_src = ip_hdr->ip_src;
-                  new->src_port = tcp_hdr->src_port;
-                  new->last_received = time(NULL);
-                  new->len = len;
-                  new->packet = (uint8_t *) malloc(len);
-                  memcpy(new->packet, packet, len);
-                  new->next = sr->nat.incoming;
-                  sr->nat.incoming = new;
-                }
-                pthread_mutex_unlock(&(sr->nat.lock));
-
-                break;
-
-              case ESTABLISHED:
-                if (tcp_hdr->fin && tcp_hdr->ack) {
-                  tcp_con->client_isn = ntohl(tcp_hdr->seq_num);
-                  tcp_con->tcp_state = CLOSED;
-                }
-                break;
-
-              default:
-                break;
-            }
-
-            pthread_mutex_unlock(&((sr->nat).lock));
-            //critical section end
-
-            ipHdr->ip_src = nat_lookup->ip_ext;
-            tcp_hdr->src_port = htons(nat_lookup->aux_ext);
-
-            ipHdr->ip_sum = 0;
-            ipHdr->ip_sum = cksum(ipHdr, sizeof(sr_ip_hdr_t));
-            tcp_hdr->sum = tcp_cksum(ipHdr, tcp_hdr, len);
-
-            sr_do_forwarding(sr, packet, len, rec_iface);
+      struct sr_if* ourInterfaceList = sr->if_list;
+      while(ourInterfaceList) {
+          if (ourInterfaceList->ip == packetDst) {
+              Debug("the packet is for us\n"); 
+              sr_handle_ip_rec(sr, packet, len, rec_iface, ourInterfaceList);
+              return;
           }
+          ourInterfaceList = ourInterfaceList->next;
+      }
+
+      if (iphdr->ip_p == ip_protocol_icmp) {
+        sr_icmp_hdr_t *icmpHdr = packet_get_icmp_hdr(packet);
+        struct sr_nat_mapping *findNat = sr_nat_lookup_internal(&(sr->nat), iphdr->ip_src, 
+            icmpHdr->icmp_query_id, nat_mapping_icmp);
+        if (!findNat) {
+            findNat = sr_nat_insert_mapping(&(sr->nat), iphdr->ip_src, icmpHdr->icmp_query_id,
+                nat_mapping_icmp);
+            findNat->ip_ext = sr_get_interface(sr, match->interface)->ip;
+            findNat->aux_ext = get_icmp_id(&(sr->nat));
         }
-      } else {
-        printf("External Interface \n");
+        findNat->last_updated = time(NULL);
+        icmpHdr->icmp_query_id = findNat->aux_ext;
+        icmpHdr->icmp_sum = 0;
+        uint16_t calculatedCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+        icmpHdr->icmp_sum = calculatedCksum;
+        iphdr->ip_src = findNat->ip_ext;
+        sr_do_forwarding(sr, packet, len, rec_iface);
 
-        // check if it is an external or fake internal                
-        if (myInterface == NULL) {
-          //if it is for external
-          if (!sr_nat_is_iface_internal(lpmEntry->interface)) {
+      }
+
+      else if (iphdr->ip_p == ip_protocol_tcp) {
+        sr_tcp_hdr_t *tcpHdr = packet_get_tcp_hdr(packet);
+        struct sr_nat_mapping *findNat = sr_nat_lookup_internal(&(sr->nat), iphdr->ip_src, 
+            ntohs(tcpHdr->tcp_src_port), nat_mapping_tcp);
+        if (!findNat) {
+            findNat = sr_nat_insert_mapping(&(sr->nat), iphdr->ip_src, ntohs(tcpHdr->tcp_src_port), nat_mapping_tcp);
+            findNat->ip_ext = sr_get_interface(sr, match->interface)->ip;
+            findNat->aux_ext = get_tcp_port(&(sr->nat));
+        }
+        findNat->last_updated = time(NULL);
+
+        pthread_mutex_lock(&((sr->nat).lock));
+                    
+        struct sr_nat_connection *connection = get_connection(findNat, iphdr->ip_dst);
+
+        if (!connection) {
+            connection = add_connection(findNat, iphdr->ip_dst);
+        }
+        connection->last_updated = time(NULL);
+        
+        if (connection->tcp_state == CLOSED) {
+            if(ntohl(tcpHdr->tcp_ack_num) == 0 && tcpHdr->syn && 
+            !tcpHdr->ack) {
+              connection->client = ntohl(tcpHdr->tcp_seq_num);
+              connection->tcp_state = SYN_SENT;
+            }
+        }
+        else if (connection->tcp_state == SYN_RCVD) {
+            if(ntohl(tcpHdr->tcp_seq_num) == connection->client + 1 && 
+            ntohl(tcpHdr->tcp_ack_num) == connection->server + 1 && 
+            !tcpHdr->syn) {
+              connection->client = ntohl(tcpHdr->tcp_seq_num);
+              connection->tcp_state = ESTABLISHED;
+            }
+
+            pthread_mutex_lock(&(sr->nat.lock));
+            struct sr_tcp_syn *incomingSyn = sr->nat.incoming;
+            while (incomingSyn){
+                if ((incomingSyn->ip_src == iphdr->ip_src) && 
+                  (incomingSyn->src_port == tcpHdr->tcp_src_port)){
+                  break;
+                }
+                incomingSyn = incomingSyn->next;
+            }
+
+            if (!incomingSyn){
+              struct sr_tcp_syn *newSyn = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
+              newSyn->ip_src = iphdr->ip_src;
+              newSyn->src_port = tcpHdr->tcp_src_port;
+              newSyn->last_received = time(NULL);
+              newSyn->packet = (uint8_t *) malloc(len);
+              newSyn->interface = rec_iface->name;
+              newSyn->len = len;
+              memcpy(newSyn->packet, packet, len);
+              newSyn->next = sr->nat.incoming;
+              sr->nat.incoming = newSyn;
+            }
+            pthread_mutex_unlock(&(sr->nat.lock));
+        }
+        else if (connection->tcp_state == ESTABLISHED) {
+            if (tcpHdr->fin && tcpHdr->ack) {
+              connection->client = ntohl(tcpHdr->tcp_seq_num);
+              connection->tcp_state = CLOSED;
+            }
+        }
+
+        pthread_mutex_unlock(&((sr->nat).lock));
+
+        iphdr->ip_src = findNat->ip_ext;
+        tcpHdr->tcp_src_port = htons(findNat->aux_ext);
+        tcpHdr->tcp_sum = tcp_cksum(iphdr, tcpHdr, len);
+
+        sr_do_forwarding(sr, packet, len, rec_iface);
+      }
+
+    }
+    else {
+      Debug("Received packet from external interface\n");
+      
+      if (iphdr->ip_p == ip_protocol_icmp) {
+        sr_icmp_hdr_t *icmpHdr = packet_get_icmp_hdr(packet);
+        struct sr_nat_mapping *findNat = sr_nat_lookup_external(&(sr->nat), icmpHdr->icmp_query_id, 
+            nat_mapping_icmp);
+        if (findNat) {
+          if (icmpHdr->icmp_type == icmp_type_echo_reply 
+          && icmpHdr->icmp_code == icmp_code_empty) {
+
+            iphdr->ip_dst = findNat->ip_int;
+            icmpHdr->icmp_query_id = findNat->aux_int;
+            findNat->last_updated = time(NULL);
+
+            icmpHdr->icmp_sum = 0;
+            uint16_t calculatedCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+            icmpHdr->icmp_sum = calculatedCksum;
+            
             sr_do_forwarding(sr, packet, len, rec_iface);
           }
-        } else {
-          if (ipProtocol == ip_protocol_icmp) {
-            printf("external to internal icmp\n");
-            sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-            
-            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_external(&(sr->nat), icmp_hdr->icmp_hdr_idf, nat_mapping_icmp);
-            if (nat_lookup != NULL) {
-              if (is_icmp_echo_reply(icmp_hdr)) {
-                ipHdr->ip_dst = nat_lookup->ip_int;
-                icmp_hdr->icmp_hdr_idf = nat_lookup->aux_int;
-                nat_lookup->last_updated = time(NULL);
 
-                ipHdr->ip_sum = 0;
-                ipHdr->ip_sum = cksum(ipHdr, sizeof(sr_ip_hdr_t));
-                int icmpOffset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
-                icmp_hdr->icmp_sum = 0;
-                icmp_hdr->icmp_sum = cksum(icmp_hdr, len - icmpOffset);
-
-                sr_do_forwarding(sr, packet, len, rec_iface);
-              }
-            }
-          } else if (ipProtocol == ip_protocol_tcp) {
-            printf("tcp external to internal\n");
-            sr_tcp_hdr_t *tcp_hdr = (sr_tcp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-
-            struct sr_nat_mapping *nat_lookup = sr_nat_lookup_external(&(sr->nat), ntohs(tcp_hdr->dst_port), nat_mapping_tcp);
-            if (nat_lookup != NULL) {
-              nat_lookup->last_updated = time(NULL);
-
-              // critical section,lock, then modify code under critical section
-              pthread_mutex_lock(&((sr->nat).lock));
-
-              struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_lookup, ipSrc);
-              if (tcp_con == NULL) {
-                tcp_con = sr_nat_insert_tcp_con(nat_lookup, ipSrc);
-              }
-              tcp_con->last_updated = time(NULL);
-
-              switch (tcp_con->tcp_state) {
-                case SYN_SENT:
-                  if (ntohl(tcp_hdr->ack_num) == tcp_con->client_isn + 1 && tcp_hdr->syn && tcp_hdr->ack) {
-                    tcp_con->server_isn = ntohl(tcp_hdr->seq_num);
-                    tcp_con->tcp_state = SYN_RCVD;
-                  
-                  
-                  } else if (ntohl(tcp_hdr->ack_num) == 0 && tcp_hdr->syn && !tcp_hdr->ack) {
-                  tcp_con->server_isn = ntohl(tcp_hdr->seq_num);
-                  tcp_con->tcp_state = SYN_RCVD;
-                }
-                break;
-
-                case SYN_RCVD:
-                  pthread_mutex_lock(&(sr->nat.lock));
-                  struct sr_tcp_syn *incoming = sr->nat.incoming;
-                  while (incoming){
-                    if ((incoming->ip_src == ip_hdr->ip_src) && (incoming->src_port == tcp_hdr->src_port)){
-                      break;
-                    }
-                    incoming = incoming->next;
-                  }
-
-                  if (!incoming){
-                    struct sr_tcp_syn *new = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
-                    new->ip_src = ip_hdr->ip_src;
-                    new->src_port = tcp_hdr->src_port;
-                    new->last_received = time(NULL);
-                    new->len = len;
-                    new->packet = (uint8_t *) malloc(len);
-                    memcpy(new->packet, packet, len);
-                    new->next = sr->nat.incoming;
-                    sr->nat.incoming = new;
-                  }
-                  pthread_mutex_unlock(&(sr->nat.lock));
-              
-
-                default:
-                  break;
-              }
-
-
-              
-
-
-              pthread_mutex_unlock(&((sr->nat).lock));
-            
-
-              ipHdr->ip_dst = nat_lookup->ip_int;
-              tcp_hdr->dst_port = htons(nat_lookup->aux_int);
-
-              ipHdr->ip_sum = 0;
-              ipHdr->ip_sum = cksum(ipHdr, sizeof(sr_ip_hdr_t));
-              
-              tcp_hdr->sum = tcp_cksum(ipHdr, tcp_hdr, len);
-
-              sr_do_forwarding(sr, packet, len, rec_iface);
-            }
-          }
         }
       }
-    } 
+
+      else if (iphdr->ip_p == ip_protocol_tcp) {
+        sr_tcp_hdr_t *tcpHdr = packet_get_tcp_hdr(packet);
+        struct sr_nat_mapping *findNat = sr_nat_lookup_external(&(sr->nat), ntohs(tcpHdr->tcp_dst_port), 
+        nat_mapping_tcp);
+        
+        if (findNat) {
+          findNat->last_updated = time(NULL);
+          
+          pthread_mutex_lock(&((sr->nat).lock));
+          struct sr_nat_connection *connection = get_connection(findNat, iphdr->ip_src);
+          if (!connection) {
+            connection = add_connection(findNat, iphdr->ip_src);
+          }
+          connection->last_updated = time(NULL);
+
+          if (connection->tcp_state == SYN_SENT) {
+            if (ntohl(tcpHdr->tcp_ack_num) == connection->client + 1 && tcpHdr->syn && tcpHdr->ack) {
+              connection->server = ntohl(tcpHdr->tcp_seq_num);
+              connection->tcp_state = SYN_RCVD;
+            }
+            else if (ntohl(tcpHdr->tcp_ack_num) == 0 && tcpHdr->syn && !tcpHdr->ack) {
+              connection->server = ntohl(tcpHdr->tcp_seq_num);
+              connection->tcp_state = SYN_RCVD;
+            }
+          }
+          else if (connection->tcp_state == SYN_RCVD) {
+            pthread_mutex_lock(&(sr->nat.lock));
+            struct sr_tcp_syn *incomingSyn = sr->nat.incoming;
+            while (incomingSyn){
+              if ((incomingSyn->ip_src == iphdr->ip_src) && 
+                (incomingSyn->src_port == tcpHdr->tcp_src_port)){
+                break;
+              }
+              incomingSyn = incomingSyn->next;
+            }
+
+            if (!incomingSyn){
+              struct sr_tcp_syn *newSyn = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
+              newSyn->ip_src = iphdr->ip_src;
+              newSyn->src_port = tcpHdr->tcp_src_port;
+              newSyn->last_received = time(NULL);
+              newSyn->packet = (uint8_t *) malloc(len);
+              newSyn->interface = rec_iface->name;
+              newSyn->len = len;
+              memcpy(newSyn->packet, packet, len);
+              newSyn->next = sr->nat.incoming;
+              sr->nat.incoming = newSyn;
+            }
+            pthread_mutex_unlock(&(sr->nat.lock));
+          }
+          pthread_mutex_unlock(&((sr->nat).lock));
+
+          iphdr->ip_dst = findNat->ip_int;
+          tcpHdr->tcp_dst_port = htons(findNat->aux_int);
+          tcpHdr->tcp_sum = calculate_tcp_cksum(iphdr, tcpHdr, len);
+
+          sr_do_forwarding(sr, packet, len, rec_iface);
+
+        }
+      }
+
+    }
+
+  }
+
+  
   else{
     struct sr_if *iface_walker = sr->if_list;
   // Loop through all interfaces to see if it matches one
@@ -326,9 +294,8 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
           rec_iface, NULL);
       return;
     }
-      
-      // Sanity checks done, forward packet
-     // sr_do_forwarding(sr, packet, len, rec_iface);
+    sr_do_forwarding(sr, packet, len, rec_iface);  
+    
   }
     
 }

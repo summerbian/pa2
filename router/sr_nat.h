@@ -121,7 +121,12 @@ int generate_unique_icmp_identifier(struct sr_nat *nat);
 struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping *mapping, uint32_t ip_con);
 struct sr_nat_connection *sr_nat_insert_tcp_con(struct sr_nat_mapping *mapping, uint32_t ip_con);
 void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping);
+struct sr_nat_connection *get_connection(struct sr_nat_mapping *mapping, uint32_t ip);
+struct sr_nat_connection *add_connection(struct sr_nat_mapping *mapping, uint32_t ip);
 void destroy_tcp_conn(struct sr_nat_mapping *mapping, struct sr_nat_connection *conn);
 void destroy_nat_mapping(struct sr_nat *nat, struct sr_nat_mapping *nat_mapping);
+
+int get_icmp_id(struct sr_nat *nat);
+int get_tcp_port(struct sr_nat *nat);
 
 #endif
