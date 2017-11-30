@@ -40,7 +40,7 @@ void sr_handle_arp(struct sr_instance* sr,
 void sr_handle_arp_rep(struct sr_instance* sr, uint8_t *packet,
     struct sr_if* rec_iface) {
 
-  sr_arp_hdr_t *arp_hdr = get_arp_header(packet);
+  sr_arp_hdr_t *arp_hdr = packet_get_arp_hdr(packet);
   uint32_t coming_from = arp_hdr->ar_sip;
 
   struct sr_if *out = sr_get_interface(sr, rec_iface->name);
@@ -51,7 +51,7 @@ void sr_handle_arp_rep(struct sr_instance* sr, uint8_t *packet,
     sr_ethernet_hdr_t *eth_hdr;
 
     while(packet_queue) {
-      eth_hdr = get_eth_header(packet_queue->buf);
+      eth_hdr = packet_get_eth_hdr(packet_queue->buf);
       
       memcpy(eth_hdr->ether_dhost, (uint8_t *) arp_hdr->ar_sha, sizeof(uint8_t) * ETHER_ADDR_LEN);
       memcpy(eth_hdr->ether_shost, (uint8_t *) out->addr, sizeof(uint8_t) * ETHER_ADDR_LEN); 
