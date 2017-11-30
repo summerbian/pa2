@@ -300,7 +300,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
     while(iface_walker) {
       // If we are the receiver, could also compare ethernet
       // addresses as an extra check
-      if(iface_walker->ip == ip_hdr->packetDst) {
+      if(iface_walker->ip == packetDst) {
         Debug("Got a packet destined the router at interface\n");
         sr_handle_ip_rec(sr, packet, len, rec_iface, iface_walker);
         return;
