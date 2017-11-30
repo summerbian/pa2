@@ -86,7 +86,7 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     struct sr_nat_mapping *currMapping, *nextMapping;
     currMapping = nat->mappings;
 
-    while (currMapping != NULL) {
+    while (currMapping) {
       nextMapping = currMapping->next;
 
       //icmp
