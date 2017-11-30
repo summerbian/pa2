@@ -304,7 +304,7 @@ struct sr_nat_connection *add_connection(struct sr_nat_mapping *mapping, uint32_
   struct sr_nat_connection *connection = malloc(sizeof(struct sr_nat_connection));
   memset(connection, 0, sizeof(struct sr_nat_connection));
 
-  connection->tcp_state = tcp_closed;
+  connection->tcp_state = CLOSED;
   connection->ip = ip;
   connection->last_updated = time(NULL);
   
@@ -336,7 +336,7 @@ void destroy_tcp_conn(struct sr_nat_mapping *mapping, struct sr_nat_connection *
 int get_icmp_id(struct sr_nat *nat) {
   pthread_mutex_lock(&(nat->lock));
 
-  uint16_t *icmp_ids = nat->icmp_ids;
+  uint16_t *icmp_ids = nat->available_icmp_identifiers;
   int i;
   for (i = 1; i <= NUM_OF_ICMP_IDs; i++) {
     if (icmp_ids[i] == 0) {
@@ -352,7 +352,7 @@ int get_icmp_id(struct sr_nat *nat) {
 int get_tcp_port(struct sr_nat *nat) {
   pthread_mutex_lock(&(nat->lock));
 
-  uint16_t *ports = nat->ports;
+  uint16_t *ports = nat->available_ports;
   int i;
   for (i = 1024; i <= NUM_OF_PORTS; i++) {
     if (ports[i] == 0) {
