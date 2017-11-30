@@ -83,15 +83,15 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
       if (iphdr->ip_p == ip_protocol_icmp) {
         sr_icmp_hdr_t *icmpHdr = packet_get_icmp_hdr(packet);
         struct sr_nat_mapping *findNat = sr_nat_lookup_internal(&(sr->nat), iphdr->ip_src, 
-            icmpHdr->icmp_query_id, nat_mapping_icmp);
+            icmpHdr->icmp_hdr_idf, nat_mapping_icmp);
         if (!findNat) {
-            findNat = sr_nat_insert_mapping(&(sr->nat), iphdr->ip_src, icmpHdr->icmp_query_id,
+            findNat = sr_nat_insert_mapping(&(sr->nat), iphdr->ip_src, icmpHdr->icmp_hdr_idf,
                 nat_mapping_icmp);
             findNat->ip_ext = sr_get_interface(sr, match->interface)->ip;
             findNat->aux_ext = get_icmp_id(&(sr->nat));
         }
         findNat->last_updated = time(NULL);
-        icmpHdr->icmp_query_id = findNat->aux_ext;
+        icmpHdr->icmp_hdr_idf = findNat->aux_ext;
         icmpHdr->icmp_sum = 0;
         uint16_t calculatedCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
         icmpHdr->icmp_sum = calculatedCksum;
@@ -121,7 +121,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         connection->last_updated = time(NULL);
         
         if (connection->tcp_state == CLOSED) {
-            if(ntohl(tcpHdr->tcp_ack_num) == 0 && tcpHdr->syn && 
+            if(ntohl(tcpHdr->ack_num) == 0 && tcpHdr->syn && 
             !tcpHdr->ack) {
               connection->client_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = SYN_SENT;
@@ -129,7 +129,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         }
         else if (connection->tcp_state == SYN_RCVD) {
             if(ntohl(tcpHdr->seq_num) == connection->client_isn + 1 && 
-            ntohl(tcpHdr->tcp_ack_num) == connection->server_isn + 1 && 
+            ntohl(tcpHdr->ack_num) == connection->server_isn + 1 && 
             !tcpHdr->syn) {
               connection->client_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = ESTABLISHED;
@@ -170,7 +170,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
 
         iphdr->ip_src = findNat->ip_ext;
         tcpHdr->tcp_src_port = htons(findNat->aux_ext);
-        tcpHdr->tcp_sum = tcp_cksum(iphdr, tcpHdr, len);
+        tcpHdr->sum = tcp_cksum(iphdr, tcpHdr, len);
 
         sr_do_forwarding(sr, packet, len, rec_iface);
       }
@@ -181,14 +181,14 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
       
       if (iphdr->ip_p == ip_protocol_icmp) {
         sr_icmp_hdr_t *icmpHdr = packet_get_icmp_hdr(packet);
-        struct sr_nat_mapping *findNat = sr_nat_lookup_external(&(sr->nat), icmpHdr->icmp_query_id, 
+        struct sr_nat_mapping *findNat = sr_nat_lookup_external(&(sr->nat), icmpHdr->icmp_hdr_idf, 
             nat_mapping_icmp);
         if (findNat) {
-          if (icmpHdr->icmp_type == icmp_type_echo_reply 
-          && icmpHdr->icmp_code == icmp_code_empty) {
+          if (icmpHdr->icmp_type == icmp_protocol_type_echo_rep 
+          && icmpHdr->icmp_code == icmp_protocol_code_empty) {
 
             iphdr->ip_dst = findNat->ip_int;
-            icmpHdr->icmp_query_id = findNat->aux_int;
+            icmpHdr->icmp_hdr_idf = findNat->aux_int;
             findNat->last_updated = time(NULL);
 
             icmpHdr->icmp_sum = 0;
@@ -203,7 +203,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
 
       else if (iphdr->ip_p == ip_protocol_tcp) {
         sr_tcp_hdr_t *tcpHdr = packet_get_tcp_hdr(packet);
-        struct sr_nat_mapping *findNat = sr_nat_lookup_external(&(sr->nat), ntohs(tcpHdr->tcp_dst_port), 
+        struct sr_nat_mapping *findNat = sr_nat_lookup_external(&(sr->nat), ntohs(tcpHdr->dst_port), 
         nat_mapping_tcp);
         
         if (findNat) {
@@ -217,11 +217,11 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
           connection->last_updated = time(NULL);
 
           if (connection->tcp_state == SYN_SENT) {
-            if (ntohl(tcpHdr->tcp_ack_num) == connection->client_isn + 1 && tcpHdr->syn && tcpHdr->ack) {
+            if (ntohl(tcpHdr->ack_num) == connection->client_isn + 1 && tcpHdr->syn && tcpHdr->ack) {
               connection->server_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = SYN_RCVD;
             }
-            else if (ntohl(tcpHdr->tcp_ack_num) == 0 && tcpHdr->syn && !tcpHdr->ack) {
+            else if (ntohl(tcpHdr->ack_num) == 0 && tcpHdr->syn && !tcpHdr->ack) {
               connection->server_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = SYN_RCVD;
             }
@@ -254,8 +254,8 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
           pthread_mutex_unlock(&((sr->nat).lock));
 
           iphdr->ip_dst = findNat->ip_int;
-          tcpHdr->tcp_dst_port = htons(findNat->aux_int);
-          tcpHdr->tcp_sum = tcp_cksum(iphdr, tcpHdr, len);
+          tcpHdr->dst_port = htons(findNat->aux_int);
+          tcpHdr->sum = tcp_cksum(iphdr, tcpHdr, len);
 
           sr_do_forwarding(sr, packet, len, rec_iface);
 
