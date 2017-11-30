@@ -138,11 +138,11 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             pthread_mutex_lock(&(sr->nat.lock));
             struct sr_tcp_syn *incomingSyn = sr->nat.incoming;
             while (incomingSyn){
-                if ((incomingSyn->ip_src == iphdr->ip_src) && 
-                  (incomingSyn->src_port == tcpHdr->src_port)){
-                  break;
-                }
-                incomingSyn = incomingSyn->next;
+              if ((incomingSyn->ip_src == iphdr->ip_src) && 
+                (incomingSyn->src_port == tcpHdr->src_port)){
+                break;
+              }
+              incomingSyn = incomingSyn->next;
             }
 
             if (!incomingSyn){
@@ -346,9 +346,7 @@ void sr_do_forwarding(struct sr_instance *sr, uint8_t *packet,
 void sr_handle_ip_rec(struct sr_instance *sr, uint8_t *packet,
     unsigned int len, struct sr_if *rec_iface, struct sr_if* target_iface) {
 
-  Debug("Got IP packet:\n");
   sr_ip_hdr_t *ip_hdr = packet_get_ip_hdr(packet);
-  // Get IP protocol information
   uint8_t ip_proto = ip_hdr->ip_p;
 
   switch(ip_proto) {
@@ -368,14 +366,14 @@ void sr_handle_ip_rec(struct sr_instance *sr, uint8_t *packet,
 
       // Check for too small packet length or wrong checksum
       if(!is_sanity_check_of_icmp_packet_ok(ip_hdr, icmp_hdr, len)) 
-            return;
+          return;
 
       if(icmp_hdr->icmp_type == icmp_protocol_type_echo_req &&
           icmp_hdr->icmp_code == icmp_protocol_code_empty) {
         
         // Send ICMP echo reply
         sr_send_icmp(sr, icmp_protocol_type_echo_rep,
-          icmp_protocol_type_echo_rep, packet, len, rec_iface, target_iface);
+        icmp_protocol_code_empty, packet, len, rec_iface, target_iface);
       }
       break;
     default:
