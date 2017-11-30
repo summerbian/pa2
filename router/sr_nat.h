@@ -2,13 +2,13 @@
 #ifndef SR_NAT_TABLE_H
 #define SR_NAT_TABLE_H
 
-#define MAX_UINT 65535
-#define MIN_PORT 1024
-#define TOTAL_PORTS MAX_UINT - MIN_PORT
+//#define MAX_UINT 65535
+//#define MIN_PORT 1024
+//#define TOTAL_PORTS MAX_UINT - MIN_PORT
 #define NUM_OF_ICMP_IDs 65535 - 1
 #define NUM_OF_PORTS 65535 - 1024
-#define MIN_ICMP_IDENTIFIER 1
-#define TOTAL_ICMP_IDENTIFIERS MAX_UINT - MIN_ICMP_IDENTIFIER
+//#define MIN_ICMP_IDENTIFIER 1
+//#define TOTAL_ICMP_IDENTIFIERS MAX_UINT - MIN_ICMP_IDENTIFIER
 #define NAT_INTERNAL_IFACE "eth1"
 
 #include <inttypes.h>
@@ -85,9 +85,9 @@ struct sr_nat {
   struct sr_instance *sr;
 
   //Mapping of available ports 
-  uint16_t available_ports[TOTAL_PORTS];
+  uint16_t available_ports[NUM_OF_PORTS];
   // Mapping of available ICMP identifiers 
-  uint16_t available_icmp_identifiers[TOTAL_ICMP_IDENTIFIERS];
+  uint16_t available_icmp_identifiers[NUM_OF_ICMP_IDs];
 
   /* threading */
   pthread_mutex_t lock;
