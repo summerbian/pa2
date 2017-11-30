@@ -123,15 +123,15 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         if (connection->tcp_state == CLOSED) {
             if(ntohl(tcpHdr->tcp_ack_num) == 0 && tcpHdr->syn && 
             !tcpHdr->ack) {
-              connection->client = ntohl(tcpHdr->tcp_seq_num);
+              connection->client_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = SYN_SENT;
             }
         }
         else if (connection->tcp_state == SYN_RCVD) {
-            if(ntohl(tcpHdr->tcp_seq_num) == connection->client + 1 && 
-            ntohl(tcpHdr->tcp_ack_num) == connection->server + 1 && 
+            if(ntohl(tcpHdr->seq_num) == connection->client_isn + 1 && 
+            ntohl(tcpHdr->tcp_ack_num) == connection->server_isn + 1 && 
             !tcpHdr->syn) {
-              connection->client = ntohl(tcpHdr->tcp_seq_num);
+              connection->client_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = ESTABLISHED;
             }
 
@@ -161,7 +161,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         }
         else if (connection->tcp_state == ESTABLISHED) {
             if (tcpHdr->fin && tcpHdr->ack) {
-              connection->client = ntohl(tcpHdr->tcp_seq_num);
+              connection->client_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = CLOSED;
             }
         }
@@ -217,12 +217,12 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
           connection->last_updated = time(NULL);
 
           if (connection->tcp_state == SYN_SENT) {
-            if (ntohl(tcpHdr->tcp_ack_num) == connection->client + 1 && tcpHdr->syn && tcpHdr->ack) {
-              connection->server = ntohl(tcpHdr->tcp_seq_num);
+            if (ntohl(tcpHdr->tcp_ack_num) == connection->client_isn + 1 && tcpHdr->syn && tcpHdr->ack) {
+              connection->server_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = SYN_RCVD;
             }
             else if (ntohl(tcpHdr->tcp_ack_num) == 0 && tcpHdr->syn && !tcpHdr->ack) {
-              connection->server = ntohl(tcpHdr->tcp_seq_num);
+              connection->server_isn = ntohl(tcpHdr->seq_num);
               connection->tcp_state = SYN_RCVD;
             }
           }
@@ -255,7 +255,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
 
           iphdr->ip_dst = findNat->ip_int;
           tcpHdr->tcp_dst_port = htons(findNat->aux_int);
-          tcpHdr->tcp_sum = calculate_tcp_cksum(iphdr, tcpHdr, len);
+          tcpHdr->tcp_sum = tcp_cksum(iphdr, tcpHdr, len);
 
           sr_do_forwarding(sr, packet, len, rec_iface);
 
