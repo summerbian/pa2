@@ -69,15 +69,14 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
   if(sr->nat_mode == 1){
     //check if is from internal or external interface
     if(strcmp(rec_iface->name, "eth1") == 0){
-
       struct sr_if* ourInterfaceList = sr->if_list;
       while(ourInterfaceList) {
-          if (ourInterfaceList->ip == packetDst) {
-              Debug("the packet is for us\n"); 
-              sr_handle_ip_rec(sr, packet, len, rec_iface, ourInterfaceList);
-              return;
-          }
-          ourInterfaceList = ourInterfaceList->next;
+        if (ourInterfaceList->ip == packetDst) {
+          Debug("the packet is for us\n"); 
+          sr_handle_ip_rec(sr, packet, len, rec_iface, ourInterfaceList);
+          return;
+        }
+        ourInterfaceList = ourInterfaceList->next;
       }
 
       if (iphdr->ip_p == ip_protocol_icmp) {
@@ -93,8 +92,8 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         findNat->last_updated = time(NULL);
         icmpHdr->icmp_hdr_idf = findNat->aux_ext;
         icmpHdr->icmp_sum = 0;
-        uint16_t calculatedCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
-        icmpHdr->icmp_sum = calculatedCksum;
+        uint16_t newCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
+        icmpHdr->icmp_sum = newCksum;
         iphdr->ip_src = findNat->ip_ext;
         sr_do_forwarding(sr, packet, len, rec_iface);
 
@@ -103,9 +102,9 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
       else if (iphdr->ip_p == ip_protocol_tcp) {
         sr_tcp_hdr_t *tcpHdr = packet_get_tcp_hdr(packet);
         struct sr_nat_mapping *findNat = sr_nat_lookup_internal(&(sr->nat), iphdr->ip_src, 
-            ntohs(tcpHdr->src_port), nat_mapping_tcp);
+            ntohs(tcpHdr->tcp_src_port), nat_mapping_tcp);
         if (!findNat) {
-            findNat = sr_nat_insert_mapping(&(sr->nat), iphdr->ip_src, ntohs(tcpHdr->src_port), nat_mapping_tcp);
+            findNat = sr_nat_insert_mapping(&(sr->nat), iphdr->ip_src, ntohs(tcpHdr->tcp_src_port), nat_mapping_tcp);
             findNat->ip_ext = sr_get_interface(sr, match->interface)->ip;
             findNat->aux_ext = get_tcp_port(&(sr->nat));
         }
@@ -128,36 +127,36 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             }
         }
         else if (connection->tcp_state == SYN_RCVD) {
-            if(ntohl(tcpHdr->seq_num) == connection->client_isn + 1 && 
-            ntohl(tcpHdr->ack_num) == connection->server_isn + 1 && 
-            !tcpHdr->syn) {
-              connection->client_isn = ntohl(tcpHdr->seq_num);
-              connection->tcp_state = ESTABLISHED;
-            }
+          if(ntohl(tcpHdr->seq_num) == connection->client_isn + 1 && 
+          ntohl(tcpHdr->ack_num) == connection->server_isn + 1 && 
+          !tcpHdr->syn) {
+            connection->client_isn = ntohl(tcpHdr->seq_num);
+            connection->tcp_state = ESTABLISHED;
+          }
 
-            pthread_mutex_lock(&(sr->nat.lock));
-            struct sr_tcp_syn *incomingSyn = sr->nat.incoming;
-            while (incomingSyn){
-              if ((incomingSyn->ip_src == iphdr->ip_src) && 
-                (incomingSyn->src_port == tcpHdr->src_port)){
-                break;
-              }
-              incomingSyn = incomingSyn->next;
+          pthread_mutex_lock(&(sr->nat.lock));
+          struct sr_tcp_syn *incomingSyn = sr->nat.incoming;
+          while (incomingSyn){
+            if ((incomingSyn->ip_src == iphdr->ip_src) && 
+              (incomingSyn->src_port == tcpHdr->tcp_src_port)){
+              break;
             }
+            incomingSyn = incomingSyn->next;
+          }
 
-            if (!incomingSyn){
-              struct sr_tcp_syn *newSyn = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
-              newSyn->ip_src = iphdr->ip_src;
-              newSyn->src_port = tcpHdr->src_port;
-              newSyn->last_received = time(NULL);
-              newSyn->packet = (uint8_t *) malloc(len);
-              newSyn->interface = rec_iface->name;
-              newSyn->len = len;
-              memcpy(newSyn->packet, packet, len);
-              newSyn->next = sr->nat.incoming;
-              sr->nat.incoming = newSyn;
-            }
-            pthread_mutex_unlock(&(sr->nat.lock));
+          if (!incomingSyn){
+            struct sr_tcp_syn *newSyn = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
+            newSyn->ip_src = iphdr->ip_src;
+            newSyn->src_port = tcpHdr->tcp_src_port;
+            newSyn->last_received = time(NULL);
+            newSyn->packet = (uint8_t *) malloc(len);
+            newSyn->interface = rec_iface->name;
+            newSyn->len = len;
+            memcpy(newSyn->packet, packet, len);
+            newSyn->next = sr->nat.incoming;
+            sr->nat.incoming = newSyn;
+          }
+          pthread_mutex_unlock(&(sr->nat.lock));
         }
         else if (connection->tcp_state == ESTABLISHED) {
             if (tcpHdr->fin && tcpHdr->ack) {
@@ -169,7 +168,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         pthread_mutex_unlock(&((sr->nat).lock));
 
         iphdr->ip_src = findNat->ip_ext;
-        tcpHdr->src_port = htons(findNat->aux_ext);
+        tcpHdr->tcp_src_port = htons(findNat->aux_ext);
         tcpHdr->sum = tcp_cksum(iphdr, tcpHdr, len);
 
         sr_do_forwarding(sr, packet, len, rec_iface);
@@ -231,7 +230,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             struct sr_tcp_syn *incomingSyn = sr->nat.incoming;
             while (incomingSyn){
               if ((incomingSyn->ip_src == iphdr->ip_src) && 
-                (incomingSyn->src_port == tcpHdr->src_port)){
+                (incomingSyn->src_port == tcpHdr->tcp_src_port)){
                 break;
               }
               incomingSyn = incomingSyn->next;
@@ -240,7 +239,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             if (!incomingSyn){
               struct sr_tcp_syn *newSyn = (struct sr_tcp_syn *) malloc(sizeof(struct sr_tcp_syn));
               newSyn->ip_src = iphdr->ip_src;
-              newSyn->src_port = tcpHdr->src_port;
+              newSyn->src_port = tcpHdr->tcp_src_port;
               newSyn->last_received = time(NULL);
               newSyn->packet = (uint8_t *) malloc(len);
               newSyn->interface = rec_iface->name;
@@ -265,8 +264,6 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
     }
 
   }
-
-  
   else{
     struct sr_if *iface_walker = sr->if_list;
   // Loop through all interfaces to see if it matches one

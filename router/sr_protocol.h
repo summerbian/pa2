@@ -211,7 +211,7 @@ struct sr_tcp_psuedo_hdr {
 typedef struct sr_tcp_psuedo_hdr sr_tcp_psuedo_hdr_t;
 
 struct sr_tcp_hdr {
-    uint16_t src_port;
+    uint16_t tcp_src_port;
     uint16_t dst_port;
     uint32_t seq_num;
     uint32_t ack_num;
