@@ -84,7 +84,7 @@ void handle_arpreq(struct sr_instance* sr, struct sr_arpreq *req) {
                     
                 queued_packet = queued_packet->next;
             }
-            //req->ip
+            sr_arpreq_destroy(&(sr->cache), req);
         }
         else {
             sr_send_arp_req(sr, req);
