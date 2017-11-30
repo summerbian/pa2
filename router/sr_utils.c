@@ -470,7 +470,7 @@ void sr_send_arp_req(struct sr_instance *sr, struct sr_arpreq *req) {
   
 }
 
-int sr_send_arp_rep(struct sr_instance *sr, sr_ethernet_hdr_t *req_eth_hdr,
+void sr_send_arp_rep(struct sr_instance *sr, sr_ethernet_hdr_t *req_eth_hdr,
     sr_arp_hdr_t *req_arp_hdr, struct sr_if* rec_iface) {
   unsigned int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
   uint8_t *rep_packet = (uint8_t *)malloc(len);
@@ -503,9 +503,9 @@ int sr_send_arp_rep(struct sr_instance *sr, sr_ethernet_hdr_t *req_eth_hdr,
       req_arp_hdr->ar_sha, ETHER_ADDR_LEN); // target
   rep_arp_hdr->ar_tip = req_arp_hdr->ar_sip;
 
-  // Put our new (modified) packet back on the wire
-  int res = sr_send_packet(sr, rep_packet, len, rec_iface->name);
-  return res;
+
+  sr_send_packet(sr, rep_packet, len, rec_iface->name);
+  return;
 }
 
 uint8_t sanity_check_arp_packet_len_ok(unsigned int len) {
