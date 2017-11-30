@@ -63,7 +63,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
     return;
   } 
   struct sr_rt *match = calculate_LPM(sr, iphdr->ip_dst);
-
+  uint32_t packetDst = iphdr->ip_dst;
   //if is in nat node
   if(sr->nat_mode == 1){
     //check if is from internal or external interface
@@ -296,7 +296,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
   }
   else{
     struct sr_if *iface_walker = sr->if_list;
-    uint32_t packetDst = iphdr->ip_dst;
+    
     while(iface_walker) {
       // If we are the receiver, could also compare ethernet
       // addresses as an extra check
