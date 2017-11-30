@@ -196,7 +196,7 @@ int generate_unique_port(struct sr_nat *nat) {
   uint16_t *available_ports = nat->available_ports;
   int i;
 
-  for (i = MIN_PORT; i <= TOTAL_PORTS; i++) {
+  for (i = 1024; i <= NUM_OF_PORTS; i++) {
     if (available_ports[i] == 0) {
       available_ports[i] = 1;
       printf("Allocated port: %d\n", i);
@@ -218,7 +218,7 @@ int generate_unique_icmp_identifier(struct sr_nat *nat) {
   uint16_t *available_icmp_identifiers = nat->available_icmp_identifiers;
   int i;
 
-  for (i = MIN_ICMP_IDENTIFIER; i <= TOTAL_ICMP_IDENTIFIERS; i++) {
+  for (i = 1; i <= NUM_OF_ICMP_IDs; i++) {
     if (available_icmp_identifiers[i] == 0) {
       available_icmp_identifiers[i] = 1;
       printf("Allocated ICMP identifier: %d\n", i);
