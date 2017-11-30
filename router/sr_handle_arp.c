@@ -55,7 +55,7 @@ void sr_handle_arp_rep(struct sr_instance* sr, uint8_t *packet,
       
       memcpy(eth_hdr->ether_dhost, (uint8_t *) arp_hdr->ar_sha, sizeof(uint8_t) * ETHER_ADDR_LEN);
       memcpy(eth_hdr->ether_shost, (uint8_t *) out->addr, sizeof(uint8_t) * ETHER_ADDR_LEN); 
-      struct sr_if *interface = get_out_iface(sr, eth_hdr->ether_shost);
+      struct sr_if *interface = get_outgoing_iface(sr, eth_hdr->ether_shost);
       Debug("sending out of %s\n", out->name);
       sr_send_packet(sr, packet_queue->buf, packet_queue->len, interface->name);
       packet_queue = packet_queue->next; 
@@ -69,8 +69,7 @@ void sr_handle_arp_rep(struct sr_instance* sr, uint8_t *packet,
  * ARP request processing. If we get a request, respond to it. Cache
  * it regardless of it was to us or not.
  */
-void sr_handle_arp_req(struct sr_instance* sr,
-    sr_ethernet_hdr_t *req_eth_hdr, sr_arp_hdr_t *req_arp_hdr, struct sr_if* rec_iface) {
+void sr_handle_arp_req(struct sr_instance* sr,sr_ethernet_hdr_t *req_eth_hdr, sr_arp_hdr_t *req_arp_hdr, struct sr_if* rec_iface) {
 
   // Insert this host into our ARP cache regardless if for me or not
  // sr_arpcache_insert(&sr->cache, req_arp_hdr->ar_sha, req_arp_hdr->ar_sip);
@@ -90,7 +89,7 @@ void sr_handle_arp_req(struct sr_instance* sr,
 
   while(ourInterfaceList) {
     if (ourInterfaceList->ip == looking_for) {
-      sr_send_arp_rep(sr, req_arp_hdr, req_eth_hdr, ourInterfaceList);
+      sr_send_arp_rep(sr, req_eth_hdr, req_arp_hdr, ourInterfaceList);
       return;
     }
     ourInterfaceList = ourInterfaceList->next;
