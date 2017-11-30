@@ -63,7 +63,6 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
     return;
   } 
   struct sr_rt *match = calculate_LPM(sr, iphdr->ip_dst);
-  uint32_t packetDst = iphdr->ip_dst;
 
   //if is in nat node
   if(sr->nat_mode == 1){
@@ -95,6 +94,14 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         uint16_t newCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
         icmpHdr->icmp_sum = newCksum;
         iphdr->ip_src = findNat->ip_ext;
+
+        ip_hdr->ip_ttl -= 1;
+        if(ip_hdr->ip_ttl <= 0) {        
+          sr_send_icmp_t3_to(sr, packet,
+              icmp_protocol_type_time_exceed, icmp_protocol_code_ttl_expired,
+              rec_iface, NULL);
+          return;
+        }
         sr_do_forwarding(sr, packet, len, rec_iface);
 
       }
@@ -171,12 +178,20 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
         tcpHdr->tcp_src_port = htons(findNat->aux_ext);
         tcpHdr->sum = tcp_cksum(iphdr, tcpHdr, len);
 
+        ip_hdr->ip_ttl -= 1;
+        if(ip_hdr->ip_ttl <= 0) {        
+          sr_send_icmp_t3_to(sr, packet,
+              icmp_protocol_type_time_exceed, icmp_protocol_code_ttl_expired,
+              rec_iface, NULL);
+          return;
+        }
+
         sr_do_forwarding(sr, packet, len, rec_iface);
       }
 
     }
     else {
-      Debug("Received packet from external interface\n");
+   //   Debug("Received packet from external interface\n");
       
       if (iphdr->ip_p == ip_protocol_icmp) {
         sr_icmp_hdr_t *icmpHdr = packet_get_icmp_hdr(packet);
@@ -194,6 +209,14 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
             uint16_t calculatedCksum = cksum(icmpHdr, len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t));
             icmpHdr->icmp_sum = calculatedCksum;
             
+            ip_hdr->ip_ttl -= 1;
+            if(ip_hdr->ip_ttl <= 0) {        
+              sr_send_icmp_t3_to(sr, packet,
+                  icmp_protocol_type_time_exceed, icmp_protocol_code_ttl_expired,
+                  rec_iface, NULL);
+              return;
+            }
+
             sr_do_forwarding(sr, packet, len, rec_iface);
           }
 
@@ -256,6 +279,13 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
           tcpHdr->dst_port = htons(findNat->aux_int);
           tcpHdr->sum = tcp_cksum(iphdr, tcpHdr, len);
 
+          ip_hdr->ip_ttl -= 1;
+          if(ip_hdr->ip_ttl <= 0) {        
+            sr_send_icmp_t3_to(sr, packet,
+                icmp_protocol_type_time_exceed, icmp_protocol_code_ttl_expired,
+                rec_iface, NULL);
+            return;
+          }
           sr_do_forwarding(sr, packet, len, rec_iface);
 
         }
@@ -266,11 +296,11 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
   }
   else{
     struct sr_if *iface_walker = sr->if_list;
-  // Loop through all interfaces to see if it matches one
+    uint32_t packetDst = iphdr->ip_dst;
     while(iface_walker) {
       // If we are the receiver, could also compare ethernet
       // addresses as an extra check
-      if(iface_walker->ip == ip_hdr->ip_dst) {
+      if(iface_walker->ip == ip_hdr->packetDst) {
         Debug("Got a packet destined the router at interface\n");
         sr_handle_ip_rec(sr, packet, len, rec_iface, iface_walker);
         return;
@@ -294,7 +324,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t *packet,
     sr_do_forwarding(sr, packet, len, rec_iface);  
     
   }
-    
+
 }
 
 /*
